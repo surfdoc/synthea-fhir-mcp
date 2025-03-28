@@ -1,15 +1,15 @@
 # PostgreSQL MCP Server
 
-A PostgreSQL MCP (Machine Communication Protocol) server that allows agents to interact with PostgreSQL databases through a standardized interface.
+A PostgreSQL MCP server implementation using the [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) Python SDK- an open protocol that enables seamless integration between LLM applications and external data sources. This server allows AI agents to interact with PostgreSQL databases through a standardized interface.
 
 ## Features
 
 - List database schemas
 - List tables within schemas
-- Execute SQL queries
 - Describe table structures
 - List table constraints and relationships
 - Get foreign key information
+- Execute SQL queries
 
 ## Prerequisites
 
@@ -52,6 +52,31 @@ python postgres_server.py "postgresql://username:password@host:port/database"
 - `get_foreign_keys`: Get foreign key relationships for a table
 - `find_relationships`: Discover both explicit and implied relationships for a table
 
+### Configuration with mcp.json
+
+To integrate this server with MCP-compatible tools (like Cursor), add it to your `~/.cursor/mcp.json`:
+
+```json
+{
+  "servers": {
+    "postgres": {
+      "command": "/path/to/venv/bin/python",
+      "args": [
+        "/path/to/postgres_server.py",
+        "postgresql://username:password@host:5432/database?ssl=true"
+      ]
+    }
+  }
+}
+```
+
+Replace:
+- `/path/to/venv` with your virtual environment path
+- `/path/to/postgres_server.py` with the absolute path to the server script
+- Connection string with your PostgreSQL database credentials
+
+Note: Make sure to properly secure your `mcp.json` file as it contains sensitive database credentials.
+
 ## Security
 
 - Never expose sensitive database credentials in your code
@@ -62,6 +87,12 @@ python postgres_server.py "postgresql://username:password@host:port/database"
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Related Projects
+
+- [MCP Specification](https://github.com/modelcontextprotocol/specification)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+- [MCP Servers](https://github.com/modelcontextprotocol/servers)
 
 ## License
 
