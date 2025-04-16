@@ -80,11 +80,11 @@ def list_schemas() -> str:
     return query("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
 
 @mcp.tool()
-def list_tables(schema: str = 'public') -> str:
+def list_tables(db_schema: str = 'public') -> str:
     """List all tables in a specific schema.
     
     Args:
-        schema: The schema name to list tables from (defaults to 'public')
+        db_schema: The schema name to list tables from (defaults to 'public')
     """
     sql = """
     SELECT table_name, table_type
@@ -92,15 +92,15 @@ def list_tables(schema: str = 'public') -> str:
     WHERE table_schema = %s
     ORDER BY table_name
     """
-    return query(sql, [schema])
+    return query(sql, [db_schema])
 
 @mcp.tool()
-def describe_table(table_name: str, schema: str = 'public') -> str:
+def describe_table(table_name: str, db_schema: str = 'public') -> str:
     """Get detailed information about a table.
     
     Args:
         table_name: The name of the table to describe
-        schema: The schema name (defaults to 'public')
+        db_schema: The schema name (defaults to 'public')
     """
     sql = """
     SELECT 
@@ -113,15 +113,15 @@ def describe_table(table_name: str, schema: str = 'public') -> str:
     WHERE table_schema = %s AND table_name = %s
     ORDER BY ordinal_position
     """
-    return query(sql, [schema, table_name])
+    return query(sql, [db_schema, table_name])
 
 @mcp.tool()
-def get_foreign_keys(table_name: str, schema: str = 'public') -> str:
+def get_foreign_keys(table_name: str, db_schema: str = 'public') -> str:
     """Get foreign key information for a table.
     
     Args:
         table_name: The name of the table to get foreign keys from
-        schema: The schema name (defaults to 'public')
+        db_schema: The schema name (defaults to 'public')
     """
     sql = """
     SELECT 
@@ -143,15 +143,15 @@ def get_foreign_keys(table_name: str, schema: str = 'public') -> str:
         AND tc.table_name = %s
     ORDER BY tc.constraint_name, kcu.ordinal_position
     """
-    return query(sql, [schema, table_name])
+    return query(sql, [db_schema, table_name])
 
 @mcp.tool()
-def find_relationships(table_name: str, schema: str = 'public') -> str:
+def find_relationships(table_name: str, db_schema: str = 'public') -> str:
     """Find both explicit and implied relationships for a table.
     
     Args:
         table_name: The name of the table to analyze relationships for
-        schema: The schema name (defaults to 'public')
+        db_schema: The schema name (defaults to 'public')
     """
     try:
         # First get explicit foreign key relationships
@@ -236,8 +236,8 @@ def find_relationships(table_name: str, schema: str = 'public') -> str:
         """
         
         # Execute both queries and combine results
-        fk_results = query(fk_sql, [schema, table_name])
-        implied_results = query(implied_sql, [schema, table_name, schema, table_name])
+        fk_results = query(fk_sql, [db_schema, table_name])
+        implied_results = query(implied_sql, [db_schema, table_name, db_schema, table_name])
         
         # If both queries returned "No results found", return that
         if fk_results == "No results found" and implied_results == "No results found":
@@ -248,11 +248,6 @@ def find_relationships(table_name: str, schema: str = 'public') -> str:
         
     except Exception as e:
         return f"Error finding relationships: {str(e)}"
-
-def format_results(results: list[dict]) -> str:
-    """Format query results into a readable string."""
-    # This function is no longer used as we're handling formatting directly in query()
-    pass
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
