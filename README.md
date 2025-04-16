@@ -1,5 +1,7 @@
 # PostgreSQL MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@gldc/mcp-postgres)](https://smithery.ai/server/@gldc/mcp-postgres)
+
 A PostgreSQL MCP server implementation using the [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) Python SDK- an open protocol that enables seamless integration between LLM applications and external data sources. This server allows AI agents to interact with PostgreSQL databases through a standardized interface.
 
 ## Features
@@ -19,6 +21,15 @@ A PostgreSQL MCP server implementation using the [Model Context Protocol (MCP)](
 
 ## Installation
 
+### Installing via Smithery
+
+To install PostgreSQL MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@gldc/mcp-postgres):
+
+```bash
+npx -y @smithery/cli install @gldc/mcp-postgres --client claude
+```
+
+### Manual Installation
 1. Clone this repository:
 ```bash
 git clone <repository-url>
