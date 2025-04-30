@@ -4,6 +4,8 @@ from psycopg2.extras import RealDictCursor
 from mcp.server.fastmcp import FastMCP
 import sys
 import logging
+import os
+import argparse
 
 # Configure logging
 logging.basicConfig(
@@ -23,16 +25,27 @@ mcp = FastMCP(
     }
 )
 
-# Connection string from command line argument
-if len(sys.argv) < 2:
-    logger.error("Connection string must be provided as command line argument")
-    print("Error: Connection string must be provided as command line argument")
-    sys.exit(1)
+# Connection string from --conn flag or POSTGRES_CONNECTION_STRING env var
+parser = argparse.ArgumentParser(description="PostgreSQL Explorer MCP server")
+parser.add_argument(
+    "--conn",
+    dest="conn",
+    default=os.getenv("POSTGRES_CONNECTION_STRING"),
+    help="PostgreSQL connection string or DSN"
+)
+args, _ = parser.parse_known_args()
+CONNECTION_STRING: Optional[str] = args.conn
 
-CONNECTION_STRING = sys.argv[1]
-logger.info(f"Starting PostgreSQL MCP server with connection to: {CONNECTION_STRING.split('@')[1] if '@' in CONNECTION_STRING else '*masked*'}")
+logger.info(
+    "Starting PostgreSQL MCP server – connection %s",
+    ("to " + CONNECTION_STRING.split('@')[1]) if CONNECTION_STRING and '@' in CONNECTION_STRING else "(not set)"
+)
 
 def get_connection():
+    if not CONNECTION_STRING:
+        raise RuntimeError(
+            "POSTGRES_CONNECTION_STRING is not set. Provide --conn DSN or export POSTGRES_CONNECTION_STRING."
+        )
     try:
         conn = psycopg2.connect(CONNECTION_STRING)
         logger.debug("Database connection established successfully")
@@ -46,7 +59,10 @@ def query(sql: str, parameters: Optional[list] = None) -> str:
     """Execute a SQL query against the PostgreSQL database."""
     conn = None
     try:
-        conn = get_connection()
+        try:
+            conn = get_connection()
+        except RuntimeError as e:
+            return str(e)
         logger.info(f"Executing query: {sql[:100]}{'...' if len(sql) > 100 else ''}")
         
         # Use RealDictCursor for better handling of special characters in column names
@@ -298,4 +314,3 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Server error: {str(e)}")
         sys.exit(1)
-

@@ -17,11 +17,19 @@ A PostgreSQL MCP server implementation using the [Model Context Protocol (MCP)](
 - Get foreign key information
 - Execute SQL queries
 
-## Prerequisites
+## Quick Start
 
-- Python 3.x
-- PostgreSQL database server
-- Access to a PostgreSQL database
+```bash
+# Run the server without a DB connection (useful for Glama or inspection)
+python postgres_server.py
+
+# With a live database – pick one method:
+export POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:5432/db"
+python postgres_server.py
+
+# …or…
+python postgres_server.py --conn "postgresql://user:pass@host:5432/db"
+```
 
 ## Installation
 
@@ -53,11 +61,19 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. Start the MCP server by providing your PostgreSQL connection string:
-```bash
-python postgres_server.py "postgresql://username:password@host:port/database"
-```
+1. Start the MCP server.
 
+   ```bash
+   # Without a connection string (server starts, DB‑backed tools will return a friendly error)
+   python postgres_server.py
+
+   # Or set the connection string via environment variable:
+   export POSTGRES_CONNECTION_STRING="postgresql://username:password@host:port/database"
+   python postgres_server.py
+
+   # Or pass it using the --conn flag:
+   python postgres_server.py --conn "postgresql://username:password@host:port/database"
+   ```
 2. The server provides the following tools:
 
 - `query`: Execute SQL queries against the database
@@ -77,20 +93,21 @@ To integrate this server with MCP-compatible tools (like Cursor), add it to your
     "postgres": {
       "command": "/path/to/venv/bin/python",
       "args": [
-        "/path/to/postgres_server.py",
-        "postgresql://username:password@host:5432/database?ssl=true"
-      ]
+        "/path/to/postgres_server.py"
+      ],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://username:password@host:5432/database?ssl=true"
+      }
     }
   }
 }
 ```
 
+*If `POSTGRES_CONNECTION_STRING` is omitted, the server still starts and is fully inspectable; database‑backed tools will simply return an informative error until the variable is provided.*
+
 Replace:
 - `/path/to/venv` with your virtual environment path
 - `/path/to/postgres_server.py` with the absolute path to the server script
-- Connection string with your PostgreSQL database credentials
-
-Note: Make sure to properly secure your `mcp.json` file as it contains sensitive database credentials.
 
 ## Security
 
@@ -131,4 +148,4 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE. 
+SOFTWARE.
