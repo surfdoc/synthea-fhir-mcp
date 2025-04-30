@@ -3,18 +3,43 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from mcp.server.fastmcp import FastMCP
 import sys
+import logging
 
-mcp = FastMCP("PostgreSQL Explorer")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('postgres-mcp-server')
+
+# Initialize server with capabilities
+mcp = FastMCP(
+    "PostgreSQL Explorer",
+    capabilities={
+        "tools": True,      # Enable tool support
+        "logging": True,    # Enable logging support
+        "resources": False, # We don't use resources
+        "prompts": False   # We don't use prompts
+    }
+)
 
 # Connection string from command line argument
 if len(sys.argv) < 2:
+    logger.error("Connection string must be provided as command line argument")
     print("Error: Connection string must be provided as command line argument")
     sys.exit(1)
 
 CONNECTION_STRING = sys.argv[1]
+logger.info(f"Starting PostgreSQL MCP server with connection to: {CONNECTION_STRING.split('@')[1] if '@' in CONNECTION_STRING else '*masked*'}")
 
 def get_connection():
-    return psycopg2.connect(CONNECTION_STRING)
+    try:
+        conn = psycopg2.connect(CONNECTION_STRING)
+        logger.debug("Database connection established successfully")
+        return conn
+    except Exception as e:
+        logger.error(f"Failed to establish database connection: {str(e)}")
+        raise
 
 @mcp.tool()
 def query(sql: str, parameters: Optional[list] = None) -> str:
@@ -22,6 +47,7 @@ def query(sql: str, parameters: Optional[list] = None) -> str:
     conn = None
     try:
         conn = get_connection()
+        logger.info(f"Executing query: {sql[:100]}{'...' if len(sql) > 100 else ''}")
         
         # Use RealDictCursor for better handling of special characters in column names
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -29,6 +55,7 @@ def query(sql: str, parameters: Optional[list] = None) -> str:
                 # Properly escape the query using mogrify
                 if parameters:
                     query_string = cur.mogrify(sql, parameters).decode('utf-8')
+                    logger.debug(f"Query with parameters: {query_string}")
                 else:
                     query_string = sql
                 
@@ -38,12 +65,17 @@ def query(sql: str, parameters: Optional[list] = None) -> str:
                 # For non-SELECT queries
                 if cur.description is None:
                     conn.commit()
-                    return f"Query executed successfully. Rows affected: {cur.rowcount}"
+                    affected_rows = cur.rowcount
+                    logger.info(f"Non-SELECT query executed successfully. Rows affected: {affected_rows}")
+                    return f"Query executed successfully. Rows affected: {affected_rows}"
                 
                 # For SELECT queries
                 rows = cur.fetchall()
                 if not rows:
+                    logger.info("Query returned no results")
                     return "No results found"
+                
+                logger.info(f"Query returned {len(rows)} rows")
                 
                 # Format results with proper string escaping
                 result_lines = ["Results:", "--------"]
@@ -61,22 +93,30 @@ def query(sql: str, parameters: Optional[list] = None) -> str:
                             line_items.append(f"{key}: {formatted_val}")
                         result_lines.append(" | ".join(line_items))
                     except Exception as row_error:
-                        result_lines.append(f"Error formatting row: {str(row_error)}")
+                        error_msg = f"Error formatting row: {str(row_error)}"
+                        logger.error(error_msg)
+                        result_lines.append(error_msg)
                         continue
                 
                 return "\n".join(result_lines)
                 
             except Exception as exec_error:
-                return f"Query error: {str(exec_error)}\nQuery: {sql}"
+                error_msg = f"Query error: {str(exec_error)}\nQuery: {sql}"
+                logger.error(error_msg)
+                return error_msg
     except Exception as conn_error:
-        return f"Connection error: {str(conn_error)}"
+        error_msg = f"Connection error: {str(conn_error)}"
+        logger.error(error_msg)
+        return error_msg
     finally:
         if conn:
             conn.close()
+            logger.debug("Database connection closed")
 
 @mcp.tool()
 def list_schemas() -> str:
     """List all schemas in the database."""
+    logger.info("Listing database schemas")
     return query("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
 
 @mcp.tool()
@@ -86,6 +126,7 @@ def list_tables(db_schema: str = 'public') -> str:
     Args:
         db_schema: The schema name to list tables from (defaults to 'public')
     """
+    logger.info(f"Listing tables in schema: {db_schema}")
     sql = """
     SELECT table_name, table_type
     FROM information_schema.tables
@@ -102,6 +143,7 @@ def describe_table(table_name: str, db_schema: str = 'public') -> str:
         table_name: The name of the table to describe
         db_schema: The schema name (defaults to 'public')
     """
+    logger.info(f"Describing table: {db_schema}.{table_name}")
     sql = """
     SELECT 
         column_name,
@@ -123,6 +165,7 @@ def get_foreign_keys(table_name: str, db_schema: str = 'public') -> str:
         table_name: The name of the table to get foreign keys from
         db_schema: The schema name (defaults to 'public')
     """
+    logger.info(f"Getting foreign keys for table: {db_schema}.{table_name}")
     sql = """
     SELECT 
         tc.constraint_name,
@@ -153,6 +196,7 @@ def find_relationships(table_name: str, db_schema: str = 'public') -> str:
         table_name: The name of the table to analyze relationships for
         db_schema: The schema name (defaults to 'public')
     """
+    logger.info(f"Finding relationships for table: {db_schema}.{table_name}")
     try:
         # First get explicit foreign key relationships
         fk_sql = """
@@ -174,7 +218,11 @@ def find_relationships(table_name: str, db_schema: str = 'public') -> str:
             AND tc.table_name = %s
         """
         
+        logger.debug("Querying explicit foreign key relationships")
+        explicit_results = query(fk_sql, [db_schema, table_name])
+        
         # Then look for implied relationships based on common patterns
+        logger.debug("Querying implied relationships")
         implied_sql = """
         WITH source_columns AS (
             -- Get all ID-like columns from our table
@@ -234,21 +282,20 @@ def find_relationships(table_name: str, db_schema: str = 'public') -> str:
         WHERE confidence_level IS NOT NULL
         ORDER BY confidence_level, source_column;
         """
+        implied_results = query(implied_sql, [db_schema, table_name])
         
-        # Execute both queries and combine results
-        fk_results = query(fk_sql, [db_schema, table_name])
-        implied_results = query(implied_sql, [db_schema, table_name, db_schema, table_name])
-        
-        # If both queries returned "No results found", return that
-        if fk_results == "No results found" and implied_results == "No results found":
-            return "No relationships found for this table"
-            
-        # Otherwise, return both sets of results
-        return f"Explicit Foreign Keys:\n{fk_results}\n\nImplied Relationships:\n{implied_results}"
+        return "Explicit Relationships:\n" + explicit_results + "\n\nImplied Relationships:\n" + implied_results
         
     except Exception as e:
-        return f"Error finding relationships: {str(e)}"
+        error_msg = f"Error finding relationships: {str(e)}"
+        logger.error(error_msg)
+        return error_msg
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    try:
+        logger.info("Starting MCP Postgres server...")
+        mcp.run()
+    except Exception as e:
+        logger.error(f"Server error: {str(e)}")
+        sys.exit(1)
 
