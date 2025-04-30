@@ -14,5 +14,7 @@ COPY . /app
 # Expose any port if needed, e.g., 8000
 # EXPOSE 8000
 
-# Start the MCP server with a default connection string (should be overridden via Smithery config)
-CMD [ "python", "postgres_server.py", "postgresql://username:password@host:port/database" ]
+# Optionally set the connection string at run time:
+#   docker run -e POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:5432/db" mcp-postgres
+# Start the MCP server; provide the DB DSN via POSTGRES_CONNECTION_STRING
+CMD [ "python", "postgres_server.py" ]

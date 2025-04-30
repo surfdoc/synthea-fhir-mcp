@@ -29,6 +29,9 @@ python postgres_server.py
 
 # …or…
 python postgres_server.py --conn "postgresql://user:pass@host:5432/db"
+
+# Or using Docker (build once, then run):
+# docker build -t mcp-postgres . && docker run -p 8000:8000 mcp-postgres
 ```
 
 ## Installation
@@ -82,6 +85,31 @@ pip install -r requirements.txt
 - `describe_table`: Get detailed information about a table's structure
 - `get_foreign_keys`: Get foreign key relationships for a table
 - `find_relationships`: Discover both explicit and implied relationships for a table
+
+### Running with Docker
+
+Build the image:
+
+```bash
+docker build -t mcp-postgres .
+```
+
+Run the container without a database connection (the server stays inspectable):
+
+```bash
+docker run -p 8000:8000 mcp-postgres
+```
+
+Run with a live PostgreSQL database by supplying `POSTGRES_CONNECTION_STRING`:
+
+```bash
+docker run \
+  -e POSTGRES_CONNECTION_STRING="postgresql://username:password@host:5432/database" \
+  -p 8000:8000 \
+  mcp-postgres
+```
+
+*If the environment variable is omitted, the server boots normally and all database‑backed tools return a friendly “connection string is not set” message until you provide it.*
 
 ### Configuration with mcp.json
 
