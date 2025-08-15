@@ -10,10 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . /app
 
-# Expose any port if needed, e.g., 8000
-# EXPOSE 8000
+# Expose HTTP/SSE default port
+EXPOSE 8000
 
 # Optionally set the connection string at run time:
 #   docker run -e POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:5432/db" mcp-postgres
-# Start the MCP server; provide the DB DSN via POSTGRES_CONNECTION_STRING
+# Start the MCP server in stdio by default. Override with --transport.
 CMD [ "python", "postgres_server.py" ]

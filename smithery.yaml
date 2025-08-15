@@ -17,7 +17,7 @@ startCommand:
     |-
     (config) => ({
       command: 'python',
-      args: ['postgres_server.py', config.connectionString]
+      args: ['postgres_server.py', '--conn', config.connectionString]
     })
   exampleConfig:
     connectionString: postgresql://user:pass@localhost:5432/mydatabase
