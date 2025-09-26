@@ -1,2 +1,28 @@
+# Testing dependencies for Synthea FHIR MCP Server
+
+# Core testing framework
 pytest>=8.0.0
+pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-timeout>=2.1.0
+
+# Database testing
+pytest-postgresql>=5.0.0
+psycopg[binary]>=3.1.18  # Same version as main requirements
+
+# HTTP/SSE testing
+httpx>=0.25.0
+pytest-httpx>=0.26.0
+
+# Test data generation
+faker>=20.0.0
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Test utilities
+freezegun>=1.2.0  # Time mocking
+responses>=0.23.0  # HTTP response mocking

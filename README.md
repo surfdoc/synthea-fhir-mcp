@@ -1,375 +1,264 @@
-# PostgreSQL MCP Server
+# Synthea FHIR MCP Server
 
-[![smithery badge](https://smithery.ai/badge/@gldc/mcp-postgres)](https://smithery.ai/server/@gldc/mcp-postgres)
+A specialized [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) server for querying Synthea-generated FHIR healthcare data through Claude Desktop.
 
-<a href="https://glama.ai/mcp/servers/@gldc/mcp-postgres">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@gldc/mcp-postgres/badge" />
-</a>
+## 🏥 What is This?
 
-A PostgreSQL MCP server implementation using the [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) Python SDK- an open protocol that enables seamless integration between LLM applications and external data sources. This server allows AI agents to interact with PostgreSQL databases through a standardized interface.
+This MCP server provides Claude Desktop with the ability to query a PostgreSQL database containing synthetic patient data in FHIR format. The data is generated using [Synthea](https://github.com/synthetichealth/synthea) and includes:
 
-## Features
+- 117 synthetic patients
+- 79,013 observations (vital signs, lab results)
+- 22,216 procedures
+- 9,200 clinical encounters
+- 6,792 medication requests
+- 4,554 medical conditions
+- 1,623 immunization records
+- 88 allergy records
 
-- List database schemas
-- List tables within schemas
-- Describe table structures
-- List table constraints and relationships
-- Get foreign key information
-- Execute SQL queries
-- Typed tools with JSON/markdown output
-- Optional table resources and guidance prompts
+All data is **synthetic** - no real patient information is stored or accessible.
 
-## Quick Start
+## 🏗️ Architecture
 
-```bash
-# Run the server without a DB connection (useful for Glama or inspection)
-python postgres_server.py
+```mermaid
+graph LR
+    subgraph "Client"
+        CD[Claude Desktop<br/>LLM Client]
+    end
 
-# With a live database – pick one method:
-export POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:5432/db"
-python postgres_server.py
+    subgraph "Connection Layer"
+        SG[Supergateway<br/>npx proxy]
+    end
 
-# …or…
-python postgres_server.py --conn "postgresql://user:pass@host:5432/db"
+    subgraph "MCP Server"
+        MCP[MCP Server<br/>Cloud Run/Local]
+        TOOLS[["🛠️ FHIR Tools<br/>━━━━━━━━━<br/>get_patients<br/>search_conditions<br/>get_medications<br/>get_statistics<br/>+ 7 more"]]
+    end
 
-# Or using Docker (build once, then run):
-# docker build -t mcp-postgres . && docker run -p 8000:8000 mcp-postgres
+    subgraph "Database"
+        PG[(PostgreSQL<br/>Synthea FHIR Data<br/>117 patients<br/>120K+ records)]
+    end
+
+    CD -->|SSE Protocol| SG
+    SG -->|MCP Protocol| MCP
+    MCP --> TOOLS
+    MCP -->|SQL/JSONB| PG
+
+    style CD fill:#e1f5fe
+    style MCP fill:#fff3e0
+    style PG fill:#f3e5f5
+    style TOOLS fill:#e8f5e9
 ```
 
-## Installation
+## 🚀 Quick Start for Beta Testers
 
-### Installing via Smithery
+Add this configuration to your Claude Desktop settings:
 
-To install PostgreSQL MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@gldc/mcp-postgres):
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-```bash
-npx -y @smithery/cli install @gldc/mcp-postgres --client claude
+```json
+{
+  "mcpServers": {
+    "synthea-fhir": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--sse",
+        "https://synthea-mcp-1095016408887.us-central1.run.app/sse"
+      ]
+    }
+  }
+}
 ```
 
-### Manual Installation
-1. Clone this repository:
+Restart Claude Desktop and you're ready to query healthcare data!
+
+## 📊 Example Queries
+
+Once connected, ask Claude:
+
+### Getting Started
+- **"Run the get_started tool"** - Learn about the database structure (do this first!)
+
+### Basic Queries
+- "Show me statistics about the FHIR database"
+- "List 10 patients with their demographics"
+
+### Clinical Queries
+- "Find patients with Type 2 Diabetes"
+- "Which patients received COVID-19 vaccinations?"
+- "Show me patients taking lisinopril or losartan"
+
+### Patient-Specific
+- "Get full medical history for patient 229a1e6d-1714-f0cd-8253-a8729632291e"
+- "What medications is patient 59844213-b884-17cb-59e9-c07a73a06f41 taking?"
+
+## 🛠️ Available Tools
+
+- `get_started` - Learn the FHIR database structure
+- `get_patients` - List patients
+- `get_patient_summary` - Complete patient medical history
+- `search_conditions` - Find patients by diagnosis
+- `search_immunizations` - Find vaccination records
+- `get_patient_medications` - List patient medications
+- `get_patient_procedures` - List medical procedures
+- `get_patient_encounters` - List clinical visits
+- `get_patient_allergies` - List allergies
+- `query_fhir` - Execute custom FHIR queries
+- `get_statistics` - Database statistics
+
+## 💻 Local Development
+
+### Prerequisites
+- Python 3.10+
+- PostgreSQL with Synthea data
+- Docker (optional)
+
+### Setup
+
+1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd mcp-postgres
+git clone https://github.com/surfdoc/mcp-postgres-to-synthea-fhir-mcp.git
+cd mcp-postgres-to-synthea-fhir-mcp
 ```
 
-2. Create and activate a virtual environment (recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
-```
-
-3. Install dependencies:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
-
-1. Start the MCP server.
-
-   ```bash
-   # Without a connection string (server starts, DB‑backed tools will return a friendly error)
-   python postgres_server.py
-
-   # Or set the connection string via environment variable:
-   export POSTGRES_CONNECTION_STRING="postgresql://username:password@host:port/database"
-   python postgres_server.py
-
-   # Or pass it using the --conn flag:
-   python postgres_server.py --conn "postgresql://username:password@host:port/database"
-
-   # Optional: Run over HTTP transports
-   # Streamable HTTP (recommended for streaming tool outputs)
-   python postgres_server.py --transport streamable-http --host 0.0.0.0 --port 8000
-
-   # SSE transport (server-sent events) mounted at /sse and /messages/
-   python postgres_server.py --transport sse --host 0.0.0.0 --port 8000 --mount /mcp
-   ```
-2. The server provides the following tools:
-
-- `query`: Execute SQL queries against the database
-- `list_schemas`: List all available schemas
-- `list_tables`: List all tables in a specific schema
-- `describe_table`: Get detailed information about a table's structure
-- `get_foreign_keys`: Get foreign key relationships for a table
-- `find_relationships`: Discover both explicit and implied relationships for a table
-- `db_identity`: Show current db/user/host/port, search_path, and version
-
-Typed (preferred):
-- `run_query(input)`: Execute with typed input (`sql`, `parameters`, `row_limit`, `format: 'markdown'|'json'`).
-- `run_query_json(input)`: Execute and return JSON-serializable rows.
-- `list_schemas_json(input)`: List schemas with filters (`include_system`, `include_temp`, `require_usage`, `row_limit`).
-- `list_schemas_json_page(input)`: Paginated listing with filters and `name_like` pattern.
-- `list_tables_json(input)`: List tables within a schema with filters (name pattern, case sensitivity, table_types, row_limit).
-- `list_tables_json_page(input)`: Paginated tables listing with filters.
-
-Examples:
-
-```json
-// run_query (markdown)
-{
-  "sql": "SELECT * FROM information_schema.tables WHERE table_schema = %s",
-  "parameters": ["public"],
-  "row_limit": 50,
-  "format": "markdown"
-}
-
-// run_query_json
-{
-  "sql": "SELECT now() as ts",
-  "row_limit": 1
-}
+3. Configure environment:
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
 ```
 
-Inspect current connection identity:
-
-```json
-// db_identity (no input)
-{}
+4. Run locally:
+```bash
+python src/synthea_server.py
 ```
 
-List schemas (JSON) with filters:
+### Generating and Loading Synthea Data
 
-```json
-{
-  "include_system": false,
-  "include_temp": false,
-  "require_usage": true,
-  "row_limit": 10000
-}
+#### Prerequisites
+- Java 11+ (required for Synthea)
+- Python 3.8+
+- PostgreSQL database
+
+#### Quick Start
+```bash
+# Generate 100 synthetic patients (requires Java 11+)
+./scripts/generate_synthea_data.sh
+
+# Or with custom options
+./scripts/generate_synthea_data.sh 500 California 12345
 ```
 
-Paginated list with pattern filter:
+#### Advanced Generation
+```bash
+# Generate with specific options
+python scripts/generate_synthea_data.py \
+  --population 200 \
+  --state Massachusetts \
+  --city Boston \
+  --seed 42 \
+  --modules diabetes covid19
 
-```json
-{
-  "include_system": false,
-  "include_temp": false,
-  "require_usage": true,
-  "page_size": 200,
-  "cursor": null,
-  "name_like": "sales_*",
-  "case_sensitive": false
-}
+# Use custom Synthea configuration
+python scripts/generate_synthea_data.py \
+  --config scripts/synthea_config.properties \
+  --population 1000
 ```
 
-Response shape:
+#### Loading Data into PostgreSQL
+```bash
+# Set database connection
+export DATABASE_URL="postgresql://user:pass@localhost:5432/synthea"
 
-```json
-{
-  "items": [ { "schema_name": "sales_eu", "owner": "...", "is_system": false, "is_temporary": false, "has_usage": true } ],
-  "next_cursor": "...base64..." // null when no more pages
-}
+# Create schema and load data
+python scripts/load_synthea_data.py \
+  --synthea-dir synthea/output \
+  --create-schema
 ```
 
-List tables with filters (JSON):
+The generation process creates FHIR bundles containing:
+- Patient demographics
+- Observations (vitals, lab results)
+- Conditions (diagnoses)
+- Procedures
+- MedicationRequests (prescriptions)
+- Immunizations
+- Encounters (clinical visits)
+- AllergyIntolerances
 
-```json
-{
-  "db_schema": "public",
-  "name_like": "orders_*",
-  "case_sensitive": false,
-  "table_types": ["BASE TABLE", "VIEW"],
-  "row_limit": 1000
-}
-```
-
-Paginated tables listing:
-
-```json
-{
-  "db_schema": "public",
-  "page_size": 200,
-  "cursor": null,
-  "name_like": "orders_%"
-}
-```
-
-Resources (if supported by client):
-- `table://{schema}/{table}` for reading table rows. Fallback tools are available:
-  - `list_table_resources(schema)` → `table://...` URIs
-  - `read_table_resource(schema, table, row_limit)` → rows JSON
-
-Prompts (registered when supported; also exposed as tools):
-- `write_safe_select` / `prompt_write_safe_select_tool`
-- `explain_plan_tips` / `prompt_explain_plan_tips_tool`
-
-### Running with Docker
-
-Build the image:
+## 🐳 Docker Deployment
 
 ```bash
-docker build -t mcp-postgres .
+# Build
+docker build -t synthea-fhir-mcp .
+
+# Run
+docker run -e DATABASE_URL="postgresql://..." -p 8080:8080 synthea-fhir-mcp
 ```
 
-Run the container without a database connection (the server stays inspectable):
+## ☁️ Cloud Deployment
+
+### Deployment Status by Cloud Provider
+
+| Cloud Provider | Status | Testing | Documentation |
+|---------------|--------|---------|---------------|
+| **Google Cloud Platform** | ✅ **Production Ready** | Fully Tested | [GCP Guide](deploy/gcp/README.md) |
+| **Amazon Web Services** | ⚠️ **Experimental** | Not Tested | [AWS Guide](deploy/aws/README.md) |
+| **Microsoft Azure** | ⚠️ **Experimental** | Not Tested | [Azure Guide](deploy/azure/README.md) |
+
+> **Note:** Only Google Cloud Platform deployment has been tested in production. AWS and Azure deployments are experimental and provided for community testing. See [Multi-Cloud Support](docs/MULTI_CLOUD.md) for details.
+
+### Quick Deploy to GCP (Production Ready)
 
 ```bash
-docker run -p 8000:8000 mcp-postgres
+cd deploy/gcp
+cp ../../.env.example .env
+# Edit .env with your Cloud SQL credentials
+./deploy.sh
 ```
 
-Run with a live PostgreSQL database by supplying `POSTGRES_CONNECTION_STRING`:
+### Environment Variables
+- **GCP**: `CLOUD_SQL_CONNECTION_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- **AWS** (Experimental): `AWS_RDS_ENDPOINT`, `AWS_RDS_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- **Azure** (Experimental): `AZURE_POSTGRES_HOST`, `AZURE_POSTGRES_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 
-```bash
-docker run \
-  -e POSTGRES_CONNECTION_STRING="postgresql://username:password@host:5432/database" \
-  -p 8000:8000 \
-  mcp-postgres
-```
+See [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions.
 
-*If the environment variable is omitted, the server boots normally and all database‑backed tools return a friendly “connection string is not set” message until you provide it.*
+## 📚 Documentation
 
-### Configuration with mcp.json
+- [System Architecture](docs/ARCHITECTURE.md) - Detailed architecture diagrams and technical overview
+- [Beta Setup Guide](docs/BETA_SETUP.md) - Detailed setup instructions
+- [FHIR Schema Guide](docs/FHIR_SCHEMA_GUIDE.md) - Understanding FHIR JSONB queries
+- [Development Guide](docs/DEVELOPMENT.md) - Contributing and development
+- [Deployment Guide](docs/DEPLOYMENT.md) - Cloud deployment instructions
+- [Multi-Cloud Support](docs/MULTI_CLOUD.md) - AWS and Azure deployment (experimental)
+- [Testing Guide](docs/TESTING.md) - Comprehensive testing documentation
 
-To integrate this server with MCP-compatible tools (like Cursor), add it to your `~/.cursor/mcp.json`:
+## 🔒 Security & Privacy
 
-```json
-{
-  "servers": {
-    "postgres": {
-      "command": "/path/to/venv/bin/python",
-      "args": [
-        "/path/to/postgres_server.py"
-      ],
-      "env": {
-        "POSTGRES_CONNECTION_STRING": "postgresql://username:password@host:5432/database?ssl=true"
-      }
-    }
-  }
-}
-```
+- ✅ All data is synthetic (generated by Synthea)
+- ✅ No real patient information
+- ✅ Read-only database access
+- ✅ Secure HTTPS connection
 
-### Transport Environment Variables
-- `MCP_TRANSPORT=stdio|sse|streamable-http` (default: `stdio`)
-- `MCP_HOST=0.0.0.0` and `MCP_PORT=8000` for SSE/HTTP transports
-- `MCP_SSE_MOUNT=/mcp` optional SSE mount path
+## 🤝 Contributing
 
-*If `POSTGRES_CONNECTION_STRING` is omitted, the server still starts and is fully inspectable; database‑backed tools will simply return an informative error until the variable is provided.*
+Contributions are welcome! Please see our [Development Guide](docs/DEVELOPMENT.md) for details.
 
-Replace:
-- `/path/to/venv` with your virtual environment path
-- `/path/to/postgres_server.py` with the absolute path to the server script
+## 📄 License
 
-### HTTP Client Integration
+MIT License - see [LICENSE](LICENSE) file
 
-Run the server with Streamable HTTP:
+## 🙏 Acknowledgments
 
-```bash
-python postgres_server.py --transport streamable-http --host 0.0.0.0 --port 8000
-# or with Docker
-docker run -p 8000:8000 mcp-postgres \
-  python postgres_server.py --transport streamable-http --host 0.0.0.0 --port 8000
-```
+See [ATTRIBUTION.md](ATTRIBUTION.md) for acknowledgments and credits.
 
-Basic reachability check (expect non-200 since MCP expects a handshake):
+---
 
-```bash
-curl -i http://localhost:8000/mcp
-# A 404/405/422 indicates the server is reachable; clients must speak MCP.
-```
-
-Example MCP client config (conceptual) pointing at the Streamable HTTP endpoint:
-
-```json
-{
-  "servers": {
-    "postgres": {
-      "transport": "streamable-http",
-      "url": "http://localhost:8000/mcp"
-    }
-  }
-}
-```
-
-For SSE instead of Streamable HTTP:
-
-```bash
-python postgres_server.py --transport sse --host 0.0.0.0 --port 8000 --mount /mcp
-curl -N http://localhost:8000/sse  # Connects to the SSE endpoint
-```
-
-#### Python MCP Client Example (Streamable HTTP)
-
-```python
-import asyncio
-from mcp.client import streamable_http
-from mcp.client.session import ClientSession
-
-
-async def main():
-    url = "http://localhost:8000/mcp"
-    async with streamable_http.streamablehttp_client(url) as (read, write, _get_session_id):
-        session = ClientSession(read, write)
-        init = await session.initialize()
-        print("protocol:", init.protocolVersion)
-
-        # List tools
-        tools = await session.list_tools()
-        print("tools:", [t.name for t in tools.tools])
-
-        # Call typed tool: run_query_json
-        result = await session.call_tool(
-            "run_query_json",
-            {"input": {"sql": "SELECT 1 AS n", "row_limit": 1}},
-        )
-        # Prefer structuredContent if provided; fallback to text content
-        if result.structuredContent is not None:
-            print("structured:", result.structuredContent)
-        else:
-            print("text blocks:", [getattr(b, "text", None) for b in result.content])
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-## Security
-
-- Never expose sensitive database credentials in your code
-- Use environment variables or secure configuration files for database connection strings
-- Consider using connection pooling for better resource management
-- Implement proper access controls and user authentication
-
-### Environment options
-- `POSTGRES_READONLY=true` to allow only SELECT/CTE/EXPLAIN/SHOW/VALUES
-- `POSTGRES_STATEMENT_TIMEOUT_MS=15000` to cap statement runtime
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development & Tests
-- Create a venv and install runtime deps: `pip install -r requirements.txt`
-- (Optional) install test deps: `pip install -r dev-requirements.txt`
-- Run tests: `pytest -q`
-
-## Related Projects
-
-- [MCP Specification](https://github.com/modelcontextprotocol/specification)
-- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-- [MCP Servers](https://github.com/modelcontextprotocol/servers)
-
-## License
-
-MIT License
-
-Copyright (c) 2025 gldc
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Made with ❤️ for healthcare data exploration

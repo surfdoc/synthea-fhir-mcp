@@ -1,3 +1,9 @@
+# Core dependencies for Synthea FHIR MCP server
 psycopg[binary]>=3.1.18
-fastmcp>=1.0.0,<2.0.0
+psycopg[pool]
 pydantic>=2.6.0
+python-dotenv>=1.0.0
+
+# Web framework for SSE/HTTP endpoints
+fastapi>=0.100.0
+uvicorn[standard]>=0.30.0

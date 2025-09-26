@@ -1,0 +1,1 @@
+"""Security tests for Synthea FHIR MCP Server."""

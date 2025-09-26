@@ -1,0 +1,1 @@
+"""FHIR validation tests for Synthea FHIR MCP Server."""
