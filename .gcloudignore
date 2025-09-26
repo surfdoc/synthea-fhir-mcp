@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# Python files
+*.pyc
+__pycache__
+.venv
+venv
+env
+.env
+
+# Development files
+*.md
+!README.md
+tests/
+docs/
+*.log
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+.claude/
+
+# Not needed for runtime
+scripts/
+ATTRIBUTION.md
+LICENSE
+dev-requirements.txt
+.env.example

@@ -57,6 +57,17 @@ Thumbs.db
 # Project specific
 *.env
 config.ini
-credentials.json 
+credentials.json
 .cursor/
-glama/
+.claude/
+
+# Generated files
+*.pdf
+
+# Test coverage
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+.pytest_cache/
+.tox/
